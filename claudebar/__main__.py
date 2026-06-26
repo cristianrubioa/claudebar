@@ -8,7 +8,7 @@ from .acquire import acquire_cookie
 from .exceptions import InsecureKeyringError
 from .icon import render_icon
 from .lock import acquire_lock, release_lock
-from .menu import build_menu, start_refresh_thread, update_icon
+from .menu import build_menu, start_refresh_thread, start_resume_listener, update_icon
 from .state import AppState
 from .vault import assert_secure_keyring, save_cookie
 
@@ -59,6 +59,7 @@ def main():
         state.refresh()
         update_icon(icon_obj, state)
         start_refresh_thread(state, icon_obj, stop_event)
+        start_resume_listener(state, icon_obj)
 
     def handle_sigterm(signum, frame):
         on_quit(icon)
