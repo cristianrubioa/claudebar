@@ -141,6 +141,7 @@ def update_icon(icon, state):
 
     try:
         from gi.repository import GLib
+
         GLib.idle_add(_apply)
     except ImportError:
         _apply()
