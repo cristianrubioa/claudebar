@@ -9,6 +9,7 @@ help:
 	@echo "  make test     Run tests with pytest"
 	@echo "  make icon     Regenerate assets/icon.png from claudebar/icon.py"
 	@echo "  make clean    Remove __pycache__ and .pyc files"
+	@echo "  make run      Launch the tray app"
 
 lint:
 	ruff check .
@@ -33,3 +34,6 @@ icon:
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
+
+run:
+	poetry run python3 -m claudebar
