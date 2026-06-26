@@ -1,21 +1,20 @@
 import math
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from .config import THRESHOLD_RED, THRESHOLD_YELLOW
 from .enums import Color
 
 _HEIGHT = 20
 _GLYPH_SIZE = 20
-_GAP = 1
-_TEXT_WIDTH = 36
-_WIDTH = _GLYPH_SIZE + _GAP + _TEXT_WIDTH
-_TEXT_COLOR = (255, 255, 255, 255)
-_FONT_SIZE = 13
-_FONT_PATHS = (
-    "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-)
+
+
+def format_label(percent, error=False):
+    """Formats the status text shown via the tray's native indicator label."""
+    if percent is None:
+        return "!" if error else "?"
+    value = str(min(99, int(percent))) if percent < 100 else "99+"
+    return f"{value}%"
 
 
 def _color_for_percent(percent):
@@ -42,15 +41,6 @@ def _draw_glyph(draw, cx, cy, radius, color, line_width=2, rays=4):
     draw.ellipse([cx - cap, cy - cap, cx + cap, cy + cap], fill=color)
 
 
-def _load_font(size):
-    for path in _FONT_PATHS:
-        try:
-            return ImageFont.truetype(path, size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
-
-
 def render_app_icon(size=128):
     """Renders the static desktop-entry icon: the glyph alone, at a fixed
     neutral color, with no live status text — used for assets/icon.png."""
@@ -68,10 +58,12 @@ def render_app_icon(size=128):
 
 
 def render_icon(percent=None, error=False):
-    """Renders a tray icon: a status glyph (colored by threshold) next to the
-    session percentage (always a fixed standard color), similar to a battery
-    indicator's icon+text layout."""
-    img = Image.new("RGBA", (_WIDTH, _HEIGHT), (0, 0, 0, 0))
+    """Renders a tray icon: a square status glyph colored by threshold.
+    The percentage itself is presented separately via the tray's native
+    indicator label (see menu.update_icon), since hosts that embed the
+    icon into a fixed square slot would otherwise squash a wider bitmap
+    and make any text drawn into it illegible."""
+    img = Image.new("RGBA", (_GLYPH_SIZE, _HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     glyph_color = (140, 140, 140) if error else _color_for_percent(percent).value
@@ -82,17 +74,4 @@ def render_icon(percent=None, error=False):
         radius=_GLYPH_SIZE / 2 - 2,
         color=glyph_color,
     )
-
-    if percent is None:
-        label = "!" if error else "?"
-    else:
-        value = str(min(99, int(percent))) if percent < 100 else "99+"
-        label = f"{value}%"
-
-    font = _load_font(_FONT_SIZE)
-    bbox = draw.textbbox((0, 0), label, font=font)
-    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    text_x = _GLYPH_SIZE + _GAP + (_TEXT_WIDTH - text_w) / 2 - bbox[0]
-    text_y = (_HEIGHT - text_h) / 2 - bbox[1]
-    draw.text((text_x, text_y), label, fill=_TEXT_COLOR, font=font)
     return img
