@@ -13,7 +13,22 @@ from .state import AppState
 from .vault import assert_secure_keyring, save_cookie
 
 
+def _install_gtk_log_filter():
+    try:
+        from gi.repository import GLib
+
+        def _handler(log_domain, log_level, message, user_data):
+            if "gtk_widget_get_scale_factor" not in (message or ""):
+                GLib.log_default_handler(log_domain, log_level, message, user_data)
+
+        GLib.log_set_handler("Gtk", GLib.LogLevelFlags.LEVEL_CRITICAL, _handler, None)
+    except Exception:
+        pass
+
+
 def main():
+    _install_gtk_log_filter()
+
     try:
         assert_secure_keyring()
     except InsecureKeyringError as exc:
