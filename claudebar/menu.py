@@ -129,10 +129,23 @@ def update_icon(icon, state):
     else:
         percent, error = None, False
 
-    icon.icon = render_icon(percent=percent, error=error)
-    _set_native_label(icon, format_label(percent, error))
-    icon.menu = build_menu(state, icon.on_refresh, icon.on_set_cookie, icon.on_set_cookie_manual, icon.on_quit)
-    icon.update_menu()
+    new_image = render_icon(percent=percent, error=error)
+    new_menu = build_menu(state, icon.on_refresh, icon.on_set_cookie, icon.on_set_cookie_manual, icon.on_quit)
+    label = format_label(percent, error)
+
+    def _apply():
+        icon.icon = new_image
+        icon.menu = new_menu
+        icon.update_menu()
+        return False
+
+    try:
+        from gi.repository import GLib
+        GLib.idle_add(_apply)
+    except ImportError:
+        _apply()
+
+    _set_native_label(icon, label)
 
 
 def _make_wake_handler(icon, state):
