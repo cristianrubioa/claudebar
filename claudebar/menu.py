@@ -5,8 +5,10 @@ from pystray import Menu, MenuItem
 
 from .config import REFRESH_INTERVAL_SECONDS
 from .enums import ErrorKind
-from .icon import render_icon
+from .icon import format_label, render_icon
 from .vault import load_cookie
+
+_LABEL_GUIDE = "100%"
 
 _BAR_WIDTH = 10
 
@@ -94,12 +96,103 @@ def start_refresh_thread(state, icon, stop_event):
     return thread
 
 
+def _set_native_label(icon, text):
+    """Sets the tray's native indicator label (rendered by the host panel
+    next to the icon, outside its square bitmap slot). No-ops on backends
+    that don't expose this (e.g. anything but pystray's AppIndicator backend)."""
+    appindicator = getattr(icon, "_appindicator", None)
+    if appindicator is None:
+        return
+    try:
+        from gi.repository import GLib
+
+        def _apply():
+            try:
+                appindicator.set_label(text, _LABEL_GUIDE)
+            except AttributeError:
+                pass
+            return False
+
+        GLib.idle_add(_apply)
+    except ImportError:
+        try:
+            appindicator.set_label(text, _LABEL_GUIDE)
+        except AttributeError:
+            pass
+
+
 def update_icon(icon, state):
     if state.error:
-        icon.icon = render_icon(percent=None, error=True)
+        percent, error = None, True
     elif state.snapshot:
-        icon.icon = render_icon(percent=state.snapshot["session_util"])
+        percent, error = state.snapshot["session_util"], False
     else:
-        icon.icon = render_icon(percent=None, error=False)
+        percent, error = None, False
+
+    icon.icon = render_icon(percent=percent, error=error)
+    _set_native_label(icon, format_label(percent, error))
     icon.menu = build_menu(state, icon.on_refresh, icon.on_set_cookie, icon.on_set_cookie_manual, icon.on_quit)
     icon.update_menu()
+
+
+def _make_wake_handler(icon, state):
+    """Builds a D-Bus signal callback that re-renders the cached icon/label
+    when the received boolean signals "no longer suspended/locked" (False),
+    and ignores the "now suspending/locking" (True) case."""
+
+    def handler(connection, sender_name, object_path, interface_name, signal_name, parameters):
+        (still_inactive,) = parameters.unpack()
+        if not still_inactive:
+            update_icon(icon, state)
+
+    return handler
+
+
+def start_resume_listener(state, icon):
+    """Subscribes to D-Bus suspend/resume and screen lock/unlock signals so
+    the native label is re-rendered from the cached snapshot immediately,
+    instead of waiting for the next periodic refresh tick. No-ops on tray
+    backends without a native label (anything but AppIndicator)."""
+    if getattr(icon, "_appindicator", None) is None:
+        return
+
+    try:
+        import gi
+
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio
+    except (ImportError, ValueError):
+        return
+
+    handler = _make_wake_handler(icon, state)
+
+    try:
+        system_bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        system_bus.signal_subscribe(
+            "org.freedesktop.login1",
+            "org.freedesktop.login1.Manager",
+            "PrepareForSleep",
+            "/org/freedesktop/login1",
+            None,
+            Gio.DBusSignalFlags.NONE,
+            handler,
+        )
+    except Exception:
+        pass
+
+    try:
+        session_bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        # GNOME emits ActiveChanged on org.gnome.ScreenSaver rather than the
+        # freedesktop interface; subscribe to both since it varies by DE.
+        for interface_name in ("org.freedesktop.ScreenSaver", "org.gnome.ScreenSaver"):
+            session_bus.signal_subscribe(
+                None,
+                interface_name,
+                "ActiveChanged",
+                None,
+                None,
+                Gio.DBusSignalFlags.NONE,
+                handler,
+            )
+    except Exception:
+        pass
