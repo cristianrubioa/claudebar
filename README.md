@@ -11,7 +11,9 @@ A lightweight Linux system tray app that shows your claude.ai usage limits at a 
 
 Inspired by the macOS project [claude-usage-bar](https://github.com/tmatteozzi/claude-usage-bar).
 
-![claudebar preview](assets/preview.png)
+| Green (<80%) | Yellow (≥80%) | Red (≥90%) |
+|:---:|:---:|:---:|
+| ![green usage](assets/preview-green.png) | ![yellow usage](assets/preview-yellow.png) | ![red usage](assets/preview-red.png) |
 
 ## Features
 
@@ -39,8 +41,10 @@ cd claudebar
 This installs the Python dependencies via Poetry and writes an autostart entry. claudebar will start at your next login, or you can launch it immediately:
 
 ```sh
-poetry run python3 -m claudebar
+make run
 ```
+
+Add `&` at the end to run it in the background and free up the terminal.
 
 ## First run — set your cookie
 
