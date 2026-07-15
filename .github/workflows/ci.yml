@@ -41,6 +41,9 @@ jobs:
       - name: Check code
         run: make check
 
+      - name: Check icon is in sync
+        run: make check-icon
+
   tests:
     name: Tests
     needs: ruff

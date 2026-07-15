@@ -6,6 +6,7 @@ help:
 	@echo "  make format   Format code with ruff"
 	@echo "  make fix      Auto-fix and format"
 	@echo "  make check    Check without modifying (used by CI)"
+	@echo "  make check-icon  Verify assets/icon.png matches the generator"
 	@echo "  make test     Run tests with pytest"
 	@echo "  make icon     Regenerate assets/icon.png from claudebar/icon.py"
 	@echo "  make clean    Remove __pycache__ and .pyc files"
@@ -24,6 +25,15 @@ fix:
 check:
 	ruff check .
 	ruff format . --check
+
+check-icon:
+	poetry run python3 -c "import filecmp, sys, tempfile, os; \
+from claudebar.icon import render_app_icon; \
+tmp = tempfile.mktemp(suffix='.png'); \
+render_app_icon().save(tmp); \
+ok = filecmp.cmp(tmp, 'assets/icon.png', shallow=False); \
+os.remove(tmp); \
+sys.exit(0) if ok else (print('assets/icon.png is stale - run make icon to regenerate it') or sys.exit(1))"
 
 test:
 	poetry run pytest
